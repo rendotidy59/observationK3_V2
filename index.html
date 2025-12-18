@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>SHE Platform</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 900px;
+      margin: 24px auto;
+      padding: 0 12px;
+      background: #f5f5f5;
+    }
+    h2 { margin-bottom: 16px; color: #333; }
+    .card {
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    label {
+      display: block;
+      margin-top: 10px;
+      font-weight: 600;
+      color: #444;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 10px;
+      margin-top: 6px;
+      box-sizing: border-box;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-family: inherit;
+    }
+    textarea { min-height: 90px; resize: vertical; }
+    button {
+      padding: 12px 20px;
+      margin-top: 14px;
+      cursor: pointer;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    button:hover { background: #0056b3; }
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .muted { color: #666; font-size: 12px; margin-top: 6px; }
+    #msg {
+      margin-top: 10px;
+      font-weight: 600;
+      padding: 10px;
+      border-radius: 6px;
+    }
+    #msg.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    #msg.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    #debug {
+      margin-top: 10px;
+      color: red;
+      white-space: pre-wrap;
+      font-family: monospace;
+      font-size: 12px;
+      background: #fff3cd;
+      padding: 10px;
+      border-radius: 6px;
+    }
+    .status {
+      padding: 8px;
+      background: #e7f3ff;
+      border-left: 4px solid #007bff;
+      margin-bottom: 12px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h2>🛡️ SHE Platform</h2>
+  <div class="status">
+    <strong>Status:</strong> <span id="status">Memuat form...</span>
+  </div>
+
+  <div class="card">
+    <label>Pilih Jenis Form</label>
+    <select id="formType">
+      <option value="observation">📋 Observation</option>
+      <option value="hazard">⚠️ Hazard Report</option>
+      <option value="tbm">👥 Toolbox Meeting</option>
+    </select>
+    <div class="muted">Pilih jenis form yang ingin diisi, lalu lengkapi data dan submit.</div>
+  </div>
+
+  <div class="card" id="formArea">
+    <!-- Form akan muncul di sini -->
+  </div>
+
+  <div id="msg"></div>
+  <div id="debug"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  const formArea = document.getElementById("formArea");
+  const msgEl = document.getElementById("msg");
+  const debugEl = document.getElementById("debug");
+  const statusEl = document.getElementById("status");
+
+  function setMsg(text, type) {
+    msgEl.innerText = text || "";
+    msgEl.className = type || "";
+  }
+
+  function setDebug(text) {
+    debugEl.innerText = text || "";
+  }
+
+  function v(id) {
+    const el = document.getElementById(id);
+    return el ? (el.value || "").trim() : "";
+  }
+
+  async function toBase64(file) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
+  }
+
+  function switchForm() {
+    try {
+      const t = document.getElementById("formType").value;
+
+      if (t === "observation") renderObservation();
+      else if (t === "hazard") renderHazard();
+      else if (t === "tbm") renderTBM();
+
+      setMsg("", "");
+      setDebug("");
+      statusEl.innerText = "Form siap diisi ✓";
+    } catch (e) {
+      setDebug("JS error (switchForm): " + e.message + "\n" + e.stack);
+      statusEl.innerText = "Error saat memuat form ✗";
+    }
+  }
+
+  function renderObservation() {
+    formArea.innerHTML = `
+      <h3>📋 Form Observation</h3>
+
+      <div class="row">
+        <div>
+          <label>Nama Pelapor *</label>
+          <input id="nama" placeholder="Nama lengkap">
+        </div>
+        <div>
+          <label>Perusahaan *</label>
+          <input id="perusahaan" placeholder="Nama vendor/kontraktor">
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Lokasi *</label>
+          <input id="lokasi" placeholder="Plant / site">
+        </div>
+        <div>
+          <label>Area *</label>
+          <input id="area" placeholder="Area kerja">
+        </div>
+      </div>
+
+      <label>Kegiatan *</label>
+      <input id="kegiatan" placeholder="Aktivitas yang diobservasi">
+
+      <label>Kategori *</label>
+      <select id="kategori">
+        <option value="Safe">✅ Safe (Aman)</option>
+        <option value="Unsafe">⚠️ Unsafe (Tidak Aman)</option>
+      </select>
+
+      <label>Temuan *</label>
+      <textarea id="temuan" placeholder="Jelaskan apa yang ditemukan secara detail..."></textarea>
+
+      <label>Rekomendasi *</label>
+      <textarea id="rekomendasi" placeholder="Saran perbaikan atau tindakan yang perlu dilakukan..."></textarea>
+
+      <label>Level Risiko *</label>
+      <select id="risiko">
+        <option value="Low">🟢 Low (Rendah)</option>
+        <option value="Medium">🟡 Medium (Sedang)</option>
+        <option value="High">🔴 High (Tinggi)</option>
+      </select>
+
+      <label>Foto Pendukung (opsional)</label>
+      <input type="file" id="file" accept="image/*">
+
+      <button type="button" onclick="window.submitObservation()">📤 Submit Observation</button>
+    `;
+  }
+
+  function renderHazard() {
+    formArea.innerHTML = `
+      <h3>⚠️ Form Hazard Report</h3>
+
+      <div class="row">
+        <div>
+          <label>Nama Pelapor *</label>
+          <input id="nama" placeholder="Nama lengkap">
+        </div>
+        <div>
+          <label>Perusahaan *</label>
+          <input id="perusahaan" placeholder="Nama vendor/kontraktor">
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Lokasi *</label>
+          <input id="lokasi" placeholder="Plant / site">
+        </div>
+        <div>
+          <label>Area *</label>
+          <input id="area" placeholder="Area kerja">
+        </div>
+      </div>
+
+      <label>Deskripsi Bahaya *</label>
+      <textarea id="bahaya" placeholder="Jelaskan bahaya yang ditemukan..."></textarea>
+
+      <label>Potensi Dampak *</label>
+      <textarea id="dampak" placeholder="Apa dampak yang bisa terjadi jika bahaya ini tidak ditangani?"></textarea>
+
+      <label>Kontrol Sementara *</label>
+      <textarea id="kontrol" placeholder="Tindakan pengendalian sementara yang sudah/akan dilakukan..."></textarea>
+
+      <label>Level Risiko *</label>
+      <select id="risiko">
+        <option value="Low">🟢 Low (Rendah)</option>
+        <option value="Medium">🟡 Medium (Sedang)</option>
+        <option value="High">🔴 High (Tinggi)</option>
+      </select>
+
+      <label>Foto Pendukung (opsional)</label>
+      <input type="file" id="file" accept="image/*">
+
+      <button type="button" onclick="window.submitHazard()">📤 Submit Hazard Report</button>
+    `;
+  }
+
+  function renderTBM() {
+    formArea.innerHTML = `
+      <h3>👥 Form Toolbox Meeting</h3>
+
+      <label>Nama Fasilitator *</label>
+      <input id="fasilitator" placeholder="Nama fasilitator TBM">
+
+      <label>Lokasi *</label>
+      <input id="lokasi" placeholder="Plant / site">
+
+      <label>Topik Pembahasan *</label>
+      <input id="topik" placeholder="Topik yang dibahas dalam TBM">
+
+      <label>Ringkasan TBM *</label>
+      <textarea id="ringkasan" placeholder="Ringkasan pembahasan dan poin-poin penting..."></textarea>
+
+      <div class="row">
+        <div>
+          <label>Jumlah Peserta *</label>
+          <input id="jumlahPeserta" type="number" min="0" placeholder="0" value="0">
+        </div>
+        <div>
+          <label>Daftar Peserta</label>
+          <input id="daftarPeserta" placeholder="Nama1, Nama2, Nama3, ...">
+        </div>
+      </div>
+
+      <label>Foto Dokumentasi (opsional)</label>
+      <input type="file" id="file" accept="image/*">
+
+      <button type="button" onclick="window.submitTBM()">📤 Submit TBM</button>
+    `;
+  }
+
+  async function post(payload) {
+    try {
+      setMsg("⏳ Mengirim data...", "");
+      setDebug("");
+
+      // Endpoint = URL web app (exec)
+      const endpoint = window.location.href;
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const json = await res.json();
+
+      if (json.ok) {
+        let t = "✅ " + (json.message || "OK");
+        if (json.fileUrl) t += " | File: " + json.fileUrl;
+        setMsg(t, "success");
+      } else {
+        setMsg("❌ " + (json.message || "Gagal"), "error");
+      }
+    } catch (e) {
+      setMsg("❌ Gagal mengirim data. " + e.message, "error");
+      setDebug("Network/JS error: " + e.message + "\n" + e.stack);
+    }
+  }
+
+  // Global functions (dipanggil oleh onclick)
+  window.submitObservation = async function () {
+    try {
+      const f = document.getElementById("file")?.files?.[0];
+      const payload = {
+        formType: "observation",
+        timestamp: new Date().toISOString(),
+        nama: v("nama"),
+        perusahaan: v("perusahaan"),
+        lokasi: v("lokasi"),
+        area: v("area"),
+        kegiatan: v("kegiatan"),
+        kategori: v("kategori"),
+        temuan: v("temuan"),
+        rekomendasi: v("rekomendasi"),
+        risiko: v("risiko")
+      };
+
+      if (f) {
+        payload.fileName = f.name;
+        payload.mimeType = f.type || "application/octet-stream";
+        payload.fileBase64 = await toBase64(f);
+      }
+
+      await post(payload);
+    } catch (e) {
+      setMsg("❌ Error: " + e.message, "error");
+      setDebug(e.stack);
+    }
+  };
+
+  window.submitHazard = async function () {
+    try {
+      const f = document.getElementById("file")?.files?.[0];
+      const payload = {
+        formType: "hazard",
+        timestamp: new Date().toISOString(),
+        nama: v("nama"),
+        perusahaan: v("perusahaan"),
+        lokasi: v("lokasi"),
+        area: v("area"),
+        bahaya: v("bahaya"),
+        dampak: v("dampak"),
+        kontrol: v("kontrol"),
+        risiko: v("risiko")
+      };
+
+      if (f) {
+        payload.fileName = f.name;
+        payload.mimeType = f.type || "application/octet-stream";
+        payload.fileBase64 = await toBase64(f);
+      }
+
+      await post(payload);
+    } catch (e) {
+      setMsg("❌ Error: " + e.message, "error");
+      setDebug(e.stack);
+    }
+  };
+
+  window.submitTBM = async function () {
+    try {
+      const f = document.getElementById("file")?.files?.[0];
+      const payload = {
+        formType: "tbm",
+        timestamp: new Date().toISOString(),
+        fasilitator: v("fasilitator"),
+        lokasi: v("lokasi"),
+        topik: v("topik"),
+        ringkasan: v("ringkasan"),
+        jumlahPeserta: v("jumlahPeserta"),
+        daftarPeserta: v("daftarPeserta")
+      };
+
+      if (f) {
+        payload.fileName = f.name;
+        payload.mimeType = f.type || "application/octet-stream";
+        payload.fileBase64 = await toBase64(f);
+      }
+
+      await post(payload);
+    } catch (e) {
+      setMsg("❌ Error: " + e.message, "error");
+      setDebug(e.stack);
+    }
+  };
+
+  // Init
+  const formTypeSelect = document.getElementById("formType");
+  if (formTypeSelect) {
+    formTypeSelect.addEventListener("change", switchForm);
+    switchForm();
+  } else {
+    setDebug("Element #formType tidak ditemukan.");
+    statusEl.innerText = "Error saat memuat form ✗";
+  }
+
+})();
+</script>
+
+</body>
+</html>
