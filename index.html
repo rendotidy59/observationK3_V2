@@ -302,34 +302,42 @@
     `;
   }
 
-  async function post(payload) {
+// WAJIB: isi dengan URL Web App Apps Script kamu (yang /exec)
+const GAS_ENDPOINT = "https://script.google.com/macros/s/AKfycbwjWVnWFnzYTNFxf7v5morOx6ESzjjH_OQJLBmOrvJIUhVZD2DrDANMCoPfYir1DkGT/exec";
+
+async function post(payload) {
+  try {
+    setMsg("⏳ Mengirim data...", "");
+    setDebug("");
+
+    const res = await fetch(GAS_ENDPOINT, {
+      method: "POST",
+      // PENTING: pakai text/plain supaya tidak kena CORS preflight
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
+    });
+
+    // baca text dulu, baru parse JSON
+    const text = await res.text();
+    let json;
     try {
-      setMsg("⏳ Mengirim data...", "");
-      setDebug("");
-
-      // Endpoint = URL web app (exec)
-      const endpoint = window.location.href;
-
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-
-      const json = await res.json();
-
-      if (json.ok) {
-        let t = "✅ " + (json.message || "OK");
-        if (json.fileUrl) t += " | File: " + json.fileUrl;
-        setMsg(t, "success");
-      } else {
-        setMsg("❌ " + (json.message || "Gagal"), "error");
-      }
-    } catch (e) {
-      setMsg("❌ Gagal mengirim data. " + e.message, "error");
-      setDebug("Network/JS error: " + e.message + "\n" + e.stack);
+      json = JSON.parse(text);
+    } catch (err) {
+      throw new Error("Response bukan JSON. Potongan response:\n" + text.slice(0, 300));
     }
+
+    if (json.ok) {
+      let t = "✅ " + (json.message || "OK");
+      if (json.fileUrl) t += " | File: " + json.fileUrl;
+      setMsg(t, "success");
+    } else {
+      setMsg("❌ " + (json.message || "Gagal"), "error");
+    }
+  } catch (e) {
+    setMsg("❌ Gagal mengirim data. " + e.message, "error");
+    setDebug("Network/JS error: " + e.message + "\n" + e.stack);
   }
+}
 
   // Global functions (dipanggil oleh onclick)
   window.submitObservation = async function () {
